@@ -1,0 +1,28 @@
+name: IA Learner (auto-generar reglas)
+on:
+  workflow_run:
+    workflows: ["CI - Auditoría y SAST"]
+    types: [completed]
+jobs:
+  learn:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Ejecutar módulo IA
+        run: |
+          mkdir -p reportes
+          # Simular carga de reportes históricos (descargar de audit-reports)
+          python3 scripts/ia_learner.py
+      - name: Subir cambios (si se generaron nuevas reglas)
+        run: |
+          git config user.name "ia-agent"
+          git config user.email "ia@bot.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add rules/auditor_completo.py
+            git commit -m "IA: nuevas reglas auto-generadas"
+            git push origin main
+          else
+            echo "No hay nuevas reglas."
+          fi
