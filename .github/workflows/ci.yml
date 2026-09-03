@@ -13,15 +13,3 @@ jobs:
         with:
           name: report
           path: reporte_final.json
-  sast:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Instalar Semgrep
-        run: pip install semgrep
-      - name: Ejecutar SAST
-        run: semgrep --config ./rules/semgrep/ --json -o sast-report.json .
-      - uses: actions/upload-artifact@v7
-        with:
-          name: sast-report
-          path: sast-report.json

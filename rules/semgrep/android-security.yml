@@ -1,0 +1,11 @@
+rules:
+  - id: sql-injection
+    pattern: execSQL\([^;]*\+[^;]*\)
+    message: SQL Injection detectada
+    severity: ERROR
+    languages: [java, kotlin]
+  - id: hardcoded-secret
+    pattern: = "[A-Za-z0-9+/=_-]{20,}"
+    message: Hardcoded secret detectado
+    severity: ERROR
+    languages: [java, kotlin]

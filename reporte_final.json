@@ -1,0 +1,48 @@
+{
+  "meta": {
+    "total": 6,
+    "errors": 4,
+    "warnings": 2,
+    "debt": 2.4,
+    "score": 78.8,
+    "savings": 120.0
+  },
+  "files": [
+    {
+      "file": "/data/data/com.termux/files/home/android-toolchain/benchmarks/AllowBackup.xml",
+      "rule": "S130",
+      "severity": "warning",
+      "msg": "allowBackup activado"
+    },
+    {
+      "file": "/data/data/com.termux/files/home/android-toolchain/benchmarks/Debuggable.xml",
+      "rule": "S131",
+      "severity": "error",
+      "msg": "debuggable activado en release"
+    },
+    {
+      "file": "/data/data/com.termux/files/home/android-toolchain/benchmarks/ExportedComponent.xml",
+      "rule": "S132",
+      "severity": "warning",
+      "msg": "Componente exportado sin protecci\u00f3n"
+    },
+    {
+      "file": "/data/data/com.termux/files/home/android-toolchain/benchmarks/SQLInjection.kt",
+      "rule": "S127",
+      "severity": "error",
+      "msg": "SQL Injection detectada (concatenaci\u00f3n en execSQL)"
+    },
+    {
+      "file": "/data/data/com.termux/files/home/android-toolchain/benchmarks/HardcodedSecret.kt",
+      "rule": "S128",
+      "severity": "error",
+      "msg": "Hardcoded secret detectado"
+    },
+    {
+      "file": "/data/data/com.termux/files/home/android-toolchain/benchmarks/WorldReadable.kt",
+      "rule": "S129",
+      "severity": "error",
+      "msg": "Almacenamiento WORLD_READABLE/WRITEABLE inseguro"
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+<!-- BENCHMARK: Exported Component -->
+<activity android:name=".MainActivity" android:exported="true" />
