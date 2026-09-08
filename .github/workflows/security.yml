@@ -1,0 +1,115 @@
+name: 0Aureo Security
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
+
+      # 1. No permitir debuggable en release
+      - name: Check debuggable release
+        shell: bash
+        run: |
+          set -e
+          if grep -RniE \
+            'debuggable[[:space:]]*=[[:space:]]*["'\'']true["'\'']|android:debuggable[[:space:]]*=[[:space:]]*["'\'']true["'\'']' \
+            --include='*.xml' .; then
+            echo "::error::S131: debuggable=true encontrado"
+            exit 1
+          fi
+
+      # 2. Buscar secretos hardcodeados
+      - name: Check hardcoded secrets
+        shell: bash
+        run: |
+          set -e
+          if grep -RniE \
+            --exclude-dir=.git \
+            --exclude-dir=.gradle \
+            --exclude-dir=build \
+            '(api[_-]?key|secret|password|token)[[:space:]]*[:=][[:space:]]*["'\''][^"'\'']{8,}["'\'']' \
+            --include='*.kt' \
+            --include='*.java' \
+            --include='*.gradle' \
+            --include='*.properties' \
+            .; then
+            echo "::error::S128: posible secreto hardcodeado"
+            exit 1
+          fi
+
+      # 3. Detectar SQL construido por concatenación
+      - name: Check SQL injection patterns
+        shell: bash
+        run: |
+          set -e
+          if grep -RniE \
+            'execSQL[[:space:]]*\([^)]*(\+|\$\{)' \
+            --include='*.kt' \
+            --include='*.java' \
+            .; then
+            echo "::error::S127: posible SQL Injection por concatenación"
+            exit 1
+          fi
+
+      # 4. Detectar almacenamiento inseguro
+      - name: Check insecure world readable storage
+        shell: bash
+        run: |
+          set -e
+          if grep -RniE \
+            'MODE_WORLD_READABLE|MODE_WORLD_WRITEABLE|WORLD_READABLE|WORLD_WRITEABLE' \
+            --include='*.kt' \
+            --include='*.java' \
+            --include='*.xml' \
+            .; then
+            echo "::error::S129: almacenamiento WORLD_READABLE/WRITEABLE detectado"
+            exit 1
+          fi
+
+      # 5. Advertencia: allowBackup
+      - name: Check allowBackup
+        shell: bash
+        run: |
+          if grep -RniE \
+            'android:allowBackup[[:space:]]*=[[:space:]]*["'\'']true["'\'']' \
+            --include='AndroidManifest.xml' \
+            --include='*.xml' \
+            .; then
+            echo "::warning::S130: allowBackup=true encontrado"
+          fi
+
+      # 6. Advertencia: componentes exportados
+      - name: Check exported components
+        shell: bash
+        run: |
+          if grep -RniE \
+            'android:exported[[:space:]]*=[[:space:]]*["'\'']true["'\'']' \
+            --include='AndroidManifest.xml' \
+            --include='*.xml' \
+            .; then
+            echo "::warning::S132: componente exportado; verificar protección"
+          fi
+
+      # Build final
+      - name: Build release
+        run: ./gradlew assembleRelease --no-daemon
