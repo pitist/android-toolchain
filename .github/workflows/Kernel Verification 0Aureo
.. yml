@@ -1,0 +1,196 @@
+name: Kernel Verification 0Aureo
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: 0aureo-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verification:
+    name: 0Aureo Kernel Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      # ==============================================================
+      # 1. CHECKOUT
+      # ==============================================================
+      - name: Checkout 0Aureo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # ==============================================================
+      # 2. ELAN — NO DEPENDER DE UN TOOLCHAIN PRECONFIGURADO
+      # ==============================================================
+      - name: Install Elan
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          curl -sSfL https://elan.lean-lang.org/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+          export PATH="$HOME/.elan/bin:$PATH"
+
+          echo "=== ELAN ==="
+          elan --version
+
+      # ==============================================================
+      # 3. VERIFICAR lean-toolchain
+      # ==============================================================
+      - name: Configure Lean toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          export PATH="$HOME/.elan/bin:$PATH"
+
+          if [[ ! -f lean-toolchain ]]; then
+            echo "::error::No existe lean-toolchain en la raíz del proyecto"
+            exit 1
+          fi
+
+          TOOLCHAIN="$(tr -d '\r\n' < lean-toolchain)"
+
+          if [[ -z "$TOOLCHAIN" ]]; then
+            echo "::error::lean-toolchain está vacío"
+            exit 1
+          fi
+
+          echo "Toolchain solicitado:"
+          echo "$TOOLCHAIN"
+
+          echo "Instalando toolchain..."
+          elan toolchain install "$TOOLCHAIN"
+
+          echo "Configurando toolchain por defecto..."
+          elan default "$TOOLCHAIN"
+
+          echo "=== ELAN SHOW ==="
+          elan show
+
+      # ==============================================================
+      # 4. VERIFICACIÓN REAL DEL COMPILADOR
+      # ==============================================================
+      - name: Verify Lean and Lake
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          export PATH="$HOME/.elan/bin:$PATH"
+
+          echo "=== LEAN ==="
+          lean --version
+
+          echo "=== LAKE ==="
+          lake --version
+
+          echo "=== ELAN ==="
+          elan show
+
+      # ==============================================================
+      # 5. CACHE DE DEPENDENCIAS
+      # ==============================================================
+      - name: Cache Lake
+        uses: actions/cache@v4
+        with:
+          path: |
+            .lake/packages
+            .lake/build
+          key: |
+            0aureo-lean-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json', 'lakefile.toml') }}
+          restore-keys: |
+            0aureo-lean-${{ runner.os }}-
+
+      # ==============================================================
+      # 6. DEPENDENCIAS
+      # ==============================================================
+      - name: Update dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          export PATH="$HOME/.elan/bin:$PATH"
+
+          lake update
+
+      # ==============================================================
+      # 7. CACHE PRECOMPILADA DE MATHLIB
+      # ==============================================================
+      - name: Get Mathlib cache
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          export PATH="$HOME/.elan/bin:$PATH"
+
+          if lake exe cache get; then
+            echo "Mathlib cache obtenida correctamente."
+          else
+            echo "::warning::No se pudo obtener la cache precompilada."
+            echo "Se continuará con compilación normal."
+          fi
+
+      # ==============================================================
+      # 8. BUILD DEL KERNEL / PROYECTO
+      # ==============================================================
+      - name: Build 0Aureo
+        shell: bash
+        env:
+          LEAN_ABORT_ON_PANIC: "1"
+        run: |
+          set -euo pipefail
+
+          export PATH="$HOME/.elan/bin:$PATH"
+
+          echo "============================================================"
+          echo "0AUREO — KERNEL VERIFICATION"
+          echo "============================================================"
+
+          echo "[1/4] Lean"
+          lean --version
+
+          echo "[2/4] Lake"
+          lake --version
+
+          echo "[3/4] Toolchain"
+          elan show
+
+          echo "[4/4] BUILD"
+          lake build
+
+          echo "============================================================"
+          echo "0AUREO — BUILD PASS"
+          echo "============================================================"
+
+      # ==============================================================
+      # 9. RESUMEN
+      # ==============================================================
+      - name: Verification Summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## 0Aureo Verification Summary"
+            echo ""
+            echo "- Runner: \`${{ runner.os }}\`"
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo ""
+            echo "### Lean"
+            echo '```text'
+            export PATH="$HOME/.elan/bin:$PATH"
+            lean --version || true
+            lake --version || true
+            elan show || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
